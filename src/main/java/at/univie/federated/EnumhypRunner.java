@@ -1,88 +1,131 @@
 package at.univie.federated;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+
+import java.io.*;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
 public class EnumhypRunner {
 
-    private final Path enumhyp;
-
+    private final String dockerImage;
+    private final Path dataDir; // mounted with -v host:data
 
     /**
-     * @param enumhyp absolute path to the enumhyp project
+     * @param dockerImage  name of docker image, e.g. "enumhyp-ubuntu"
+     * @param dataDir      host directory mounted to /data in container
      */
-    public EnumhypRunner( Path enumhyp ){
-        this.enumhyp = enumhyp;
+    public EnumhypRunner(String dockerImage, Path dataDir) {
+        this.dockerImage = dockerImage;
+        this.dataDir = dataDir;
     }
 
-    private int runEnumhyp(List<String> args, Path workingDir) throws IOException, InterruptedException {
+    /**
+     * Build and run:
+     *
+     * docker run --rm -v hostDataDir:/data image args...
+     */
+    private int runEnumhypDocker(List<String> enumhypArgs) throws IOException, InterruptedException {
+
         List<String> command = new ArrayList<>();
-        command.add(enumhyp.toString());
-        command.addAll(args);
 
-        ProcessBuilder processBuilder = new ProcessBuilder(command);
-        processBuilder.directory(workingDir.toFile());
+        command.add("docker");
+        command.add("run");
+        command.add("--rm");
 
-        // Merge Stderr into Stdout  - easier Logger
-        processBuilder.redirectErrorStream(true);
+        // mount host directory to container:/data
+        command.add("-v");
+        command.add(dataDir.toAbsolutePath() + ":/data");
 
-        Process process = processBuilder.start();
+        // docker image name
+        command.add(dockerImage);
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()))){
+        // add enumhyp command and args
+        command.addAll(enumhypArgs);
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+
+        Process process = pb.start();
+
+        try (BufferedReader reader =
+                     new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+
             String line;
-            while ((line = reader.readLine())  != null ) {
-                System.out.println("[enumhyp] : "+ line);
+            while ((line = reader.readLine()) != null) {
+                System.out.println("[enumhyp] " + line);
             }
         }
 
         int exitCode = process.waitFor();
         if (exitCode != 0) {
-            throw new RuntimeException("Enumhyp Failed to exit code: " + exitCode);
+            throw new RuntimeException("Enumhyp failed with exit code " + exitCode);
         }
+
         return exitCode;
     }
 
+    // ------------------------------------------------------------
+    //  PUBLIC API
+    // ------------------------------------------------------------
+
     /**
-     * Calls: enumhyp generate table.csv
-     * @param csvPath path to input CSV (absolute or relative to workingDir)
-     * @param workingDir directory where enumhyp will run and create .graph file
+     * Calls:
+     * docker run ... enumhyp-ubuntu generate /data/input.csv
      */
-    public void generate(Path csvPath, Path workingDir) throws IOException, InterruptedException {
-        List<String> args = List.of("generate", csvPath.toString());
-        runEnumhyp(args, workingDir);
+    public void generate(Path csvFile) throws IOException, InterruptedException {
+        List<String> args = List.of(
+                "generate",
+                "/data/" + csvFile.getFileName().toString()
+        );
+
+        runEnumhypDocker(args);
     }
 
     /**
-     * Calls: enumhyp enumerate table.graph
-     * @param graphPath path to .graph file
-     * @param workingDir directory where enumeration happens
+     * Calls:
+     *   docker run ... enumhyp-ubuntu enumerate /data/graphFile
+     *
+     * Without -o
      */
-    public void enumerate(Path graphPath, Path workingDir) throws IOException, InterruptedException {
-        List<String> args = List.of("enumerate", graphPath.toString());
-        runEnumhyp(args, workingDir);
+    public void enumerate(Path graphFile) throws IOException, InterruptedException {
+        List<String> args = List.of(
+                "enumerate",
+                "/data/" + graphFile.getFileName().toString()
+        );
+
+        runEnumhypDocker(args);
     }
 
     /**
-     * Example: show enumhyp --help
+     * Calls:
+     *   docker run ... enumhyp-ubuntu enumerate /data/graphFile -o /data/outputFile
      */
-    public void showHelp(Path workingDir) throws IOException, InterruptedException {
+    public void enumerate(Path graphFile, Path outputFile) throws IOException, InterruptedException {
+        List<String> args = List.of(
+                "enumerate",
+                "/data/" + graphFile.getFileName().toString(),
+                "-o",
+                "/data/" + outputFile.getFileName().toString()
+        );
+
+        runEnumhypDocker(args);
+    }
+
+    /**
+     * Calls:
+     * docker run ... enumhyp-ubuntu --help
+     */
+    public void showHelp() throws IOException, InterruptedException {
         List<String> args = List.of("--help");
-        runEnumhyp(args, workingDir);
+        runEnumhypDocker(args);
     }
 
-    // Convenience factory for OS-specific binary path
+    // Convenience factory
     public static EnumhypRunner fromDefaultPath() {
-
-        // TODO: change this to 'YOUR' actual enumhyp path:
-
-        Path bin = Paths.get("C:\\Users\\jutt\\IdeaProjects\\ucc-bridge\\enumhyp\\bin\\enumhyp.exe"); // <- change this
-        return new EnumhypRunner(bin);
+        return new EnumhypRunner(
+                "enumhyp-ubuntu",
+                Path.of("C:/Users/jutt/IdeaProjects/ucc-bridge/data")
+        );
     }
 }
-
