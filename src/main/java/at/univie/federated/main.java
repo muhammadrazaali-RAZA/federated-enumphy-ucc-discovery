@@ -8,32 +8,20 @@ import java.nio.file.Paths;
 
 public class main
 {
-    public static void main(String[] args) {
-        // 1. Configure the path to the enumhyp binary
+    public static void main(String[] args) throws Exception {
+
         EnumhypRunner runner = EnumhypRunner.fromDefaultPath();
 
-        // 2. Working directory: your project root (where "data" folder lives)
-        //    Adjust if your CSV is elsewhere.
-        Path projectRoot = Paths.get("").toAbsolutePath();
-        Path dataDir = projectRoot.resolve("data");
+        // 1. generate
+//        runner.generate(Paths.get("abalone.csv"));
 
-        // 3. Input CSV and expected graph path (relative to workingDir)
-        Path csvPath = dataDir.resolve("call_a_bike.csv");     // data/table.csv
-        Path graphPath = dataDir.resolve("call_a_bike_uccs.graph"); // will be created by generate
+        // 2. enumerate without output file
+//        runner.enumerate(Paths.get("civil_service_uccs.graph"));
 
-        try {
-            System.out.println("== enumhyp --help ==");
-            runner.showHelp(projectRoot);
-
-//            System.out.println("\n== Generating hypergraph from CSV ==");
-//            runner.generate(csvPath, dataDir);
-
-            System.out.println("\n== Enumerating hitting sets ==");
-            runner.enumerate(graphPath, dataDir);
-
-            System.out.println("\nDone.");
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
+        // 3. enumerate with output file
+        runner.enumerate(
+                Paths.get("abalone_ucc.graph"),
+                Paths.get("abalone.txt")
+        );
     }
 }
