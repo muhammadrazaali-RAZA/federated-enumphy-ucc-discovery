@@ -1,4 +1,4 @@
-package at.univie.federated;
+package at.univie.federated.enumhyp;
 
 
 import java.io.*;
