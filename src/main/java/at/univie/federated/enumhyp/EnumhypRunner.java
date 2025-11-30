@@ -7,7 +7,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-public class EnumhypRunner {
+final class EnumhypRunner {
 
     private final String dockerImage;
     private final Path dataDir;      // mounted with -v host:data

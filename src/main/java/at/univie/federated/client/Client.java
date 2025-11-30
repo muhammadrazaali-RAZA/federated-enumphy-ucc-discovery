@@ -2,29 +2,35 @@ package at.univie.federated.client;
 
 import java.io.*;
 import java.net.*;
-import java.util.Scanner;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 
 
 /**
- * App class: Entry point for the federated client application.
+ * Client class: Entry point for the federated client application.
  *
  * This client establishes a TCP connection to a server running on localhost:1234.
- * It enables interactive communication by sending user input to the server
- * and printing server responses back to the console.
+ * It reads the UCC results from abalone_p1.txt and sends the data to the server.
  *
  * Key Features:
  * - Socket-based communication using java.net.Socket
+ * - Reads and transmits file data (abalone_p1.txt)
  * - Buffered I/O streams for efficient data transfer
  * - Graceful resource cleanup in finally block
- * - Interactive loop with termination keyword ("QUIT")
  */
 public class Client {
-    public static void main(String[] args) {
-        System.out.println("Socket Client Started !");
+
+    public void activateClient(String fileName, String nodeId) {
+        System.out.println("Socket Client Started for node: " + nodeId + " with file: " + fileName);
 
         String host = System.getenv().getOrDefault("SERVER_HOST", "localhost");
         int port = Integer.parseInt(System.getenv().getOrDefault("SERVER_PORT", "1234"));
-        String nodeId = System.getenv().getOrDefault("NODE_ID", "node");
+        
+        // Get file path from environment or use default
+        String dataDir = System.getenv().getOrDefault("DATA_DIR", "data");
+        Path filePath = Paths.get(dataDir, fileName);
 
         Socket socket = null;
         InputStreamReader inputStreamReader = null;
@@ -39,21 +45,56 @@ public class Client {
             bufferedReader = new BufferedReader(inputStreamReader);
             bufferedWriter = new BufferedWriter(outputStreamWriter);
 
-            // 1) Send a greeting / later this will be your local UCC result
-            String msg1 = "HELLO from " + nodeId;
-            bufferedWriter.write(msg1);
+            // 1) Send a greeting with node ID
+            String greeting = "HELLO from " + nodeId;
+            bufferedWriter.write(greeting);
             bufferedWriter.newLine();
             bufferedWriter.flush();
-            System.out.println("Sent: " + msg1);
-            System.out.println("Server: " + bufferedReader.readLine() + " ;");
+            System.out.println("Sent: " + greeting);
+            String serverResponse = bufferedReader.readLine();
+            System.out.println("Server: " + serverResponse);
 
-            // 2) Send QUIT to close the session cleanly
-            String msg2 = "QUIT";
-            bufferedWriter.write(msg2);
+            // 2) Read file and send data
+            if (Files.exists(filePath)) {
+                System.out.println("Reading file: " + filePath);
+                List<String> fileLines = Files.readAllLines(filePath);
+                
+                // Send file name and line count
+                bufferedWriter.write("FILE_DATA");
+                bufferedWriter.newLine();
+                bufferedWriter.write(fileName);
+                bufferedWriter.newLine();
+                bufferedWriter.write(String.valueOf(fileLines.size()));
+                bufferedWriter.newLine();
+                bufferedWriter.flush();
+                
+                // Send file content line by line
+                for (String line : fileLines) {
+                    bufferedWriter.write(line);
+                    bufferedWriter.newLine();
+                }
+                bufferedWriter.flush();
+                
+                System.out.println("Sent file data: " + fileLines.size() + " lines");
+                
+                // Wait for server acknowledgment
+                serverResponse = bufferedReader.readLine();
+                System.out.println("Server: " + serverResponse);
+            } else {
+                System.err.println("File not found: " + filePath);
+                bufferedWriter.write("FILE_NOT_FOUND");
+                bufferedWriter.newLine();
+                bufferedWriter.flush();
+            }
+
+            // 3) Send QUIT to close the session cleanly
+            String quitMsg = "QUIT";
+            bufferedWriter.write(quitMsg);
             bufferedWriter.newLine();
             bufferedWriter.flush();
-            System.out.println("Sent: " + msg2);
-            System.out.println("Server: " + bufferedReader.readLine() + " ;");
+            System.out.println("Sent: " + quitMsg);
+            serverResponse = bufferedReader.readLine();
+            System.out.println("Server: " + serverResponse);
 
         } catch (IOException e) {
             e.printStackTrace();
