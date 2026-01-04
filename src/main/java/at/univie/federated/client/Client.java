@@ -68,9 +68,10 @@ public class Client {
                 bufferedWriter.newLine();
                 bufferedWriter.flush();
                 
-                // Send file content line by line
+                // Send file content line by line with nodeId attached
                 for (String line : fileLines) {
-                    bufferedWriter.write(line);
+                    // Attach nodeId to each line in format: nodeId|data
+                    bufferedWriter.write(nodeId + "|" + line);
                     bufferedWriter.newLine();
                 }
                 bufferedWriter.flush();

@@ -2,159 +2,125 @@ package at.univie.federated.server;
 
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * Server class: Entry point for the federated server application.
- *
- * This server listens on TCP port 1234 and accepts incoming client connections.
- * For each connected client:
- * - Reads messages sent by the client.
- * - Receives and processes file data (UCC results).
- * - Prints the received data to the server console.
- * - Responds with confirmation messages.
- * - Terminates the session if the client sends "QUIT".
- *
- * Key Features:
- * - Multi-threaded server handling multiple clients concurrently.
- * - Persistent server socket listening for multiple clients.
- * - Receives and processes file data from clients.
- * - Buffered I/O streams for efficient communication.
- * - Graceful resource cleanup after each client session.
+ * 
+ * Simple responsibility: Accept connections and delegate to handlers.
+ * Follows KISS principle - keeps it simple and focused.
  */
-public class Server
-{
+public class Server {
+
+    private static final int PORT = 1234;
+    private static final int THREAD_POOL_SIZE = 10;
 
     public void activateServer() throws IOException {
+        System.out.println("Socket Server Started !");
 
-        System.out.println( "Socket Server Started !" );
-
-        ServerSocket serverSocket = new ServerSocket(1234);
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        ErrorHandler errorHandler = new ErrorHandler();
+        ServerSocket serverSocket = new ServerSocket(PORT);
+        ExecutorService executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
+        FileManager fileManager = new FileManager(errorHandler);
+        MessageHandler messageHandler = new MessageHandler(fileManager, errorHandler);
 
         while (true) {
             try {
                 Socket socket = serverSocket.accept();
                 System.out.println("Client connected from: " + socket.getRemoteSocketAddress());
                 
-                // Handle each client in a separate thread
-                executorService.submit(new ClientHandler(socket));
+                executorService.submit(new ClientHandler(socket, messageHandler, errorHandler));
+            } catch (IOException e) {
+                errorHandler.handleIOException(e, "activateServer - accept connection");
             } catch (Exception e) {
-                e.printStackTrace();
+                errorHandler.handleException(e, "activateServer");
             }
         }
     }
     
     /**
-     * Inner class to handle individual client connections in separate threads
+     * Handles individual client connections in separate threads.
+     * Simple responsibility: Read messages and delegate to MessageHandler.
      */
     private static class ClientHandler implements Runnable {
         private final Socket socket;
+        private final MessageHandler messageHandler;
+        private final ErrorHandler errorHandler;
         
-        public ClientHandler(Socket socket) {
+        public ClientHandler(Socket socket, MessageHandler messageHandler, ErrorHandler errorHandler) {
             this.socket = socket;
+            this.messageHandler = messageHandler;
+            this.errorHandler = errorHandler;
         }
         
         @Override
         public void run() {
-            InputStreamReader inputStreamReader = null;
-            OutputStreamWriter outputStreamWriter = null;
-            BufferedReader bufferedReader = null;
-            BufferedWriter bufferedWriter = null;
+            BufferedReader reader = null;
+            BufferedWriter writer = null;
 
             try {
-
-                inputStreamReader = new InputStreamReader(socket.getInputStream());
-                outputStreamWriter = new OutputStreamWriter(socket.getOutputStream());
-
-                bufferedReader = new BufferedReader(inputStreamReader);
-                bufferedWriter = new BufferedWriter(outputStreamWriter);
+                reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 
                 while (true) {
-                    String messageFromClient = bufferedReader.readLine();
+                    String message = reader.readLine();
 
-                    // If client closed the connection
-                    if (messageFromClient == null) {
+                    if (message == null) {
                         System.out.println("Client disconnected.");
                         break;
                     }
 
-                    // Handle greeting message
-                    if (messageFromClient.startsWith("HELLO")) {
-                        System.out.println("Client: " + messageFromClient);
-                        bufferedWriter.write("Hello received. Ready for data.");
-                        bufferedWriter.newLine();
-                        bufferedWriter.flush();
-                    }
-                    // Handle file data transmission
-                    else if (messageFromClient.equals("FILE_DATA")) {
-                        String fileName = bufferedReader.readLine();
-                        String lineCountStr = bufferedReader.readLine();
-                        int lineCount = Integer.parseInt(lineCountStr);
-                        
-                        System.out.println("Receiving file: " + fileName);
-                        System.out.println("Expected lines: " + lineCount);
-                        
-                        List<String> fileData = new ArrayList<>();
-                        for (int i = 0; i < lineCount; i++) {
-                            String line = bufferedReader.readLine();
-                            if (line != null) {
-                                fileData.add(line);
-                            }
-                        }
-                        
-                        // Print received file data
-                        System.out.println("Received file data from client:");
-                        System.out.println("--- File: " + fileName + " ---");
-                        for (String line : fileData) {
-                            System.out.println(line);
-                        }
-                        System.out.println("--- End of file ---");
-                        
-                        bufferedWriter.write("File data received successfully. Total lines: " + fileData.size());
-                        bufferedWriter.newLine();
-                        bufferedWriter.flush();
-                    }
-                    // Handle file not found
-                    else if (messageFromClient.equals("FILE_NOT_FOUND")) {
-                        System.out.println("Client: File not found on client side.");
-                        bufferedWriter.write("File not found acknowledged.");
-                        bufferedWriter.newLine();
-                        bufferedWriter.flush();
-                    }
-                    // Handle quit
-                    else if (messageFromClient.equalsIgnoreCase("QUIT")) {
-                        System.out.println("Client requested quit.");
-                        bufferedWriter.write("Session terminated. Goodbye.");
-                        bufferedWriter.newLine();
-                        bufferedWriter.flush();
+                    boolean shouldQuit = processMessage(message, reader, writer);
+                    if (shouldQuit) {
                         break;
-                    }
-                    // Handle unknown messages
-                    else {
-                        System.out.println("Client: " + messageFromClient);
-                        bufferedWriter.write("Message Received.");
-                        bufferedWriter.newLine();
-                        bufferedWriter.flush();
                     }
                 }
 
+            } catch (java.net.SocketException e) {
+                errorHandler.handleSocketException(e, "ClientHandler.run");
+            } catch (java.net.SocketTimeoutException e) {
+                errorHandler.handleSocketTimeout(e, "ClientHandler.run");
+            } catch (IOException e) {
+                errorHandler.handleIOException(e, "ClientHandler.run");
             } catch (Exception e) {
-                e.printStackTrace();
+                errorHandler.handleException(e, "ClientHandler.run");
             } finally {
-                try {
-                    if (socket != null) socket.close();
-                    if (inputStreamReader != null) inputStreamReader.close();
-                    if (outputStreamWriter != null) outputStreamWriter.close();
-                    if (bufferedReader != null) bufferedReader.close();
-                    if (bufferedWriter != null) bufferedWriter.close();
-                    System.out.println("Connection closed.");
-                } catch (IOException e) {
-                    e.printStackTrace();
+                closeResources(reader, writer);
+            }
+        }
+        
+        private boolean processMessage(String message, BufferedReader reader, BufferedWriter writer) {
+            try {
+                if (message.startsWith("HELLO")) {
+                    messageHandler.handleHello(message, writer);
+                    return false;
+                } else if (message.equals("FILE_DATA")) {
+                    messageHandler.handleFileData(reader, writer);
+                    return false;
+                } else if (message.equals("FILE_NOT_FOUND")) {
+                    messageHandler.handleFileNotFound(writer);
+                    return false;
+                } else if (message.equalsIgnoreCase("QUIT")) {
+                    return messageHandler.handleQuit(writer);
+                } else {
+                    messageHandler.handleUnknown(message, writer);
+                    return false;
                 }
+            } catch (IOException e) {
+                errorHandler.handleIOException(e, "processMessage");
+                return true; // Break loop on I/O error
+            }
+        }
+        
+        private void closeResources(BufferedReader reader, BufferedWriter writer) {
+            try {
+                if (socket != null) socket.close();
+                if (reader != null) reader.close();
+                if (writer != null) writer.close();
+                System.out.println("Connection closed.");
+            } catch (IOException e) {
+                errorHandler.handleCleanupError(e, "socket/streams");
             }
         }
     }
