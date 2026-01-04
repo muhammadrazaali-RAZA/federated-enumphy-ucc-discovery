@@ -1,10 +1,13 @@
-package at.univie.federated;
+package at.univie.federated.enumhyp;
 
 import at.univie.federated.enumhyp.EnumhypRunner;
 
-final class GenerateEnumerate {
+import java.io.IOException;
+import java.nio.file.Paths;
 
-    final void generateEnumerate() {
+public final class GenerateEnumerate {
+
+    public void generateEnumerate() throws IOException, InterruptedException {
         EnumhypRunner runner = EnumhypRunner.fromDefaultPath();
 
         // 1. Generate UCC graphs
