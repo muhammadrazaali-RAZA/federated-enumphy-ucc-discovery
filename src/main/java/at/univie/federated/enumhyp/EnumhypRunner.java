@@ -73,19 +73,23 @@ public final class EnumhypRunner {
 
     /**
      * Calls:
-     * docker run ... enumhyp-ubuntu generate /data/input.csv
-     * output:  Path to generated .graph file
+     * docker run ... enumhyp-ubuntu generate /data/dir/input.csv
+     * output:  Path to generated .graph file in /data/dir/
+     * 
+     * @param dir Directory name within data folder (e.g., "fdReduced")
+     * @param csvFile Path to CSV file (filename will be extracted)
      */
-    public void generate(Path csvFile) throws IOException, InterruptedException {
+    public void generate(String dir, Path csvFile) throws IOException, InterruptedException {
 
-        String graphName = csvFile.getFileName().toString().replace(".csv", "_ucc.graph");
-        System.out.println("Generating " + graphName);
+        String csvFileName = csvFile.getFileName().toString();
+        String graphName = csvFileName.replace(".csv", "_ucc.graph");
+        System.out.println("Generating " + dir + "/" + graphName);
 
         List<String> args = List.of(
                 "generate",
-                "/data/" + csvFile.getFileName().toString(),
+                "/data/" + dir + "/" + csvFileName,
                 "-o",
-                "/data/" + graphName
+                "/data/" + dir + "/" + graphName
         );
 
         System.out.println(runEnumhypDocker(args));
@@ -93,14 +97,18 @@ public final class EnumhypRunner {
 
     /**
      * Calls:
-     * docker run ... enumhyp-ubuntu enumerate /data/graphFile -o /data/outputFile
+     * docker run ... enumhyp-ubuntu enumerate /data/dir/graphFile -o /data/dir/outputFile
+     * 
+     * @param dir Directory name within data folder (e.g., "fdReduced")
+     * @param graphFile Path to graph file (filename will be extracted)
+     * @param outputFile Path to output file (filename will be extracted)
      */
-    public void enumerate(Path graphFile, Path outputFile) throws IOException, InterruptedException {
+    public void enumerate(String dir, Path graphFile, Path outputFile) throws IOException, InterruptedException {
         List<String> args = List.of(
                 "enumerate",
-                "/data/" + graphFile.getFileName().toString(),
+                "/data/" + dir + "/" + graphFile.getFileName().toString(),
                 "-o",
-                "/data/" + outputFile.getFileName().toString()
+                "/data/" + dir + "/" + outputFile.getFileName().toString()
         );
 
         System.out.println(runEnumhypDocker(args));

@@ -6,15 +6,24 @@ import at.univie.federated.server.Server;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Main {
     public static void main(String[] args) throws Exception {
 
         boolean runEnumhyp = false;
 
+        // Variables for client management
+        String data = "fdReduced";
+        int length = 10;
+
+        boolean genGraph   = true;
+        boolean genEnuTxt  = true;
+
         if (runEnumhyp) {
                 GenerateEnumerate runGenerateEnumerate = new GenerateEnumerate();
-                runGenerateEnumerate.generateEnumerate();
+                runGenerateEnumerate.generateEnumerate(data , length, genGraph, genEnuTxt);
         }
 
         // Start server in a separate thread
@@ -32,24 +41,23 @@ public class Main {
         // Wait a bit for server to start
         Thread.sleep(1000);
 
-        // 4. Start clients in separate threads to allow concurrent execution
-        Client client1 = new Client();
-        Thread client1Thread = new Thread(() -> {
-            client1.activateClient("abalone_p1.txt", "part_1");
-        });
+        // Start clients in separate threads to allow concurrent execution
+        List<Thread> clientThreads = new ArrayList<>();
 
-        Client client2 = new Client();
-        Thread client2Thread = new Thread(() -> {
-            client2.activateClient("abalone_p2.txt", "part_2");
-        });
+        for (int index = 0; index < length; index++) {
+            Client client = new Client();
+            final int currentPart = index + 1;
+            Thread clientThread = new Thread(() -> {
+                client.activateClient(data + "/"+data + "_p" + currentPart + ".txt", "part_" + currentPart);
+            });
+            clientThreads.add(clientThread);
+            clientThread.start();
+        }
 
-        // Start both clients concurrently
-        client1Thread.start();
-        client2Thread.start();
-
-        // Wait for clients to finish
-        client1Thread.join();
-        client2Thread.join();
+        // Wait for all clients to finish
+        for (Thread thread : clientThreads) {
+            thread.join();
+        }
 
         System.out.println("All clients completed. Server continues running...");
     }
