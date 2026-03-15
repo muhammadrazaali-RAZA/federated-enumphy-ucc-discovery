@@ -1,0 +1,3 @@
+[submodule "enumhyp"]
+	path = enumhyp
+	url = https://github.com/goodefroi/enumhyp.git
