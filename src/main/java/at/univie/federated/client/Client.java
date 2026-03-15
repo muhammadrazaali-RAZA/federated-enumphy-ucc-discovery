@@ -77,7 +77,6 @@ public class Client {
                 bufferedWriter.flush();
                 
                 System.out.println("Sent file data: " + fileLines.size() + " lines");
-                
                 // Wait for server acknowledgment
                 serverResponse = bufferedReader.readLine();
                 System.out.println("Server: " + serverResponse);

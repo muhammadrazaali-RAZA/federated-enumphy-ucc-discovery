@@ -1,4 +1,4 @@
-package at.univie.federated.enumhyp;
+package at.univie.enumhyp;
 
 
 import java.io.*;
@@ -128,6 +128,13 @@ public final class EnumhypRunner {
         return new EnumhypRunner(
                 "enumhyp-ubuntu",
                 Paths.get("C:/Users/jutt/IdeaProjects/ucc-bridge/data")
+        );
+    }
+
+    public static EnumhypRunner fromCentralizedPath() {
+        return new EnumhypRunner(
+                "enumhyp-ubuntu",
+                Paths.get("C:/Users/jutt/IdeaProjects/ucc-bridge/src/main/java/at/univie/centralized/data")
         );
     }
 }

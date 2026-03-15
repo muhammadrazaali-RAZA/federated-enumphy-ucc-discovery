@@ -1,6 +1,4 @@
-package at.univie.federated.enumhyp;
-
-import at.univie.federated.enumhyp.EnumhypRunner;
+package at.univie.enumhyp;
 
 import java.io.IOException;
 import java.nio.file.Paths;
@@ -31,6 +29,29 @@ public final class GenerateEnumerate {
                         Paths.get(csvFile + "_p" + currentPart + ".txt")
                 );
             }
+        }
+    }
+
+
+    public void generateEnumerateSingle(String csvFile, boolean graph, boolean txt) throws IOException, InterruptedException {
+        // Use centralized path for runner
+        EnumhypRunner runner = EnumhypRunner.fromCentralizedPath();
+
+        // Use csvFile as directory name (e.g., "fdReduced" for centralized/data/fdReduced/fdReduced.csv)
+        String dir = csvFile;
+
+        // 1. Generate UCC graphs
+        if (graph) {
+            runner.generate(dir, Paths.get(csvFile + ".csv"));
+        }
+
+        // 2. Enumerate with output file
+        if (txt) {
+            runner.enumerate(
+                        dir,
+                        Paths.get(csvFile + "_ucc.graph"),
+                        Paths.get(csvFile + ".txt")
+            );
         }
     }
 }
